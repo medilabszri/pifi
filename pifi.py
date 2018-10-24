@@ -28,6 +28,10 @@ class WifiHelper(object):
         return 'Bcast' in subprocess.check_output(['/sbin/ifconfig', 'wlan0'])
 
     @staticmethod
+    def isAp():
+        return '10.0.0.1' in subprocess.check_output(['/sbin/ifconfig', 'wlan0'])
+
+    @staticmethod
     def add_ssid(ssid, password):
         WifiHelper.clean_ssid()
         for s in ["network={",
@@ -58,8 +62,12 @@ class WifiHelper(object):
             subprocess.call(cmd, shell=True)
 
     def __init__(self):
+        self.is_add_ssid=False
         self.isconnect = False
         self.time_interval = 5
+
+    def set_time_interval(self, time_interval):
+        self.time_interval= time_interval
 
     def work(self):
         """
@@ -67,18 +75,24 @@ class WifiHelper(object):
         """
         self.working = True
         while self.working:
+            oh= self.on_working_callback
+            if oh:
+                oh()
             self.isconnect = self.check_wlan0()
             if self.isconnect:
-                print "wlan0 is connected."
                 oh = self.on_wifi_available_callback
                 if oh:
                     oh()
             else:
-                print "wlan0 is disconnected."
                 oh = self.on_wifi_disconnect_callback
                 if oh:
                     oh()
             time.sleep(self.time_interval)
+
+        oh= self.on_stop_callback
+        if oh:
+            print("wifiHelper on stopping:")
+            oh()
 
     def spin(self):
         self.t = threading.Thread(target=self.work)
@@ -87,13 +101,15 @@ class WifiHelper(object):
     def join(self):
         self.t.join()
 
-    def set_callback(self, on_wifi_disconnect_callback=None, on_wifi_available_callback=None):
+    def set_callback(self, on_wifi_disconnect_callback=None, on_wifi_available_callback=None, on_working_callback=None, on_stop_callback=None):
         """
         :param on_wifi_disconnect_callback: 如其名
         :param on_wifi_available_callback: 如其名
         """
+        self.on_stop_callback=on_stop_callback
         self.on_wifi_disconnect_callback = on_wifi_disconnect_callback
         self.on_wifi_available_callback = on_wifi_available_callback
+        self.on_working_callback= on_working_callback
 
     def stop(self):
         self.working = False
